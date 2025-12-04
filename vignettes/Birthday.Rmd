@@ -1,0 +1,101 @@
+---
+title: "Birthday"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Birthday}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(RPackegesProject)
+```
+
+
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(plotly)
+library(htmlwidgets)
+
+
+simulate_birthday <- function(p, n, days = 365) {
+
+  birthdays <- sample(1:days, p, replace = TRUE)
+
+  freq <- table(birthdays)
+  
+  any(freq >= n)
+}
+
+
+estimate_probability <- function(p, n, trials = 10000) {
+  
+  results <- replicate(trials, simulate_birthday(p, n))
+  mean(results)
+}
+
+p_values <- seq(10, 100, by = 10)
+n_values <- 2:5 
+results <- expand.grid(p = p_values, n = n_values)
+
+set.seed(123)
+results$probability <- mapply(estimate_probability, results$p, results$n)
+
+heatmap_plot <- ggplot(results, aes(x = p, y = n, fill = probability)) +
+  geom_tile() +
+  geom_text(aes(label = sprintf("%.3f", probability)), color = "black", size = 3) +
+  scale_fill_gradient(low = "white", high = "blue", name = "Probability") +
+  labs(title = "Probability of At Least n People Sharing a Birthday",
+       x = "Number of People (p)",
+       y = "Minimum Sharing (n)",
+       caption = "Based on 10,000 simulations per combination") +
+  theme_minimal() +
+  scale_x_continuous(breaks = p_values) +
+  scale_y_continuous(breaks = n_values)
+
+ggsave("birthday_heatmap_with_text.png", plot = heatmap_plot, width = 8, height = 6)
+
+prob_matrix <- results %>%
+  pivot_wider(names_from = p, values_from = probability) %>%
+  select(-n) %>%
+  as.matrix()
+
+surface_plot <- plot_ly(x = ~p_values, y = ~n_values, z = ~prob_matrix) %>%
+  add_surface() %>%
+  layout(title = "3D Surface: Probability of At Least n People Sharing a Birthday",
+         scene = list(xaxis = list(title = "Number of People (p)"),
+                      yaxis = list(title = "Minimum Sharing (n)"),
+                      zaxis = list(title = "Probability")))
+
+saveWidget(surface_plot, "birthday_3d_surface.html")
+```
+
+```{r, fig.width=8, fig.height=6}
+heatmap_plot
+```
+
+```{r surface, fig.width=8, fig.height=6}
+surface_plot 
+```
+
+```{r}
+birthday <- function(k){
+  1 - exp(lchoose(365, k) + lfactorial(k) - k * log(365))
+}
+```
+
+```{r}
+birthday(k = 20:25)
+```
+
+
